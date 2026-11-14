@@ -1,0 +1,45 @@
+
+name: Extract Flutter Project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract project files
+        run: |
+          set -e
+
+          ZIP="price_inquiry_flutter_project.zip"
+          test -f "$ZIP"
+
+          mkdir -p extracted
+          unzip -o "$ZIP" -d extracted
+
+          PROJECT="extracted/price_inquiry_project"
+          test -f "$PROJECT/pubspec.yaml"
+
+          rsync -a --exclude='/codemagic.yaml' "$PROJECT/" ./
+
+          git status --short
+
+      - name: Save files to GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Extract Flutter project files"
+            git push
+          fi
