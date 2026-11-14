@@ -1,4 +1,3 @@
-
 workflows:
   android-apk:
     name: Price Inquiry Android APK
@@ -14,51 +13,80 @@ workflows:
         script: |
           set -e
 
+          echo "Checking ZIP file..."
+
           ZIP="$CM_BUILD_DIR/price_inquiry_flutter_project.zip"
           test -f "$ZIP"
+
+          echo "Extracting project..."
 
           unzip -o "$ZIP" -d "$CM_BUILD_DIR"
 
           PROJECT_DIR="$CM_BUILD_DIR/price_inquiry_project"
+
           test -f "$PROJECT_DIR/pubspec.yaml"
+          test -d "$PROJECT_DIR/lib"
+          test -f "$PROJECT_DIR/codemagic_assets/AndroidManifest.xml"
+          test -f "$PROJECT_DIR/codemagic_assets/MainActivity.kt"
 
           BUILD_DIR="$CM_BUILD_DIR/.codemagic_build"
           SOURCE_DIR="$CM_BUILD_DIR/.source_backup"
 
           rm -rf "$BUILD_DIR" "$SOURCE_DIR"
+
           mkdir -p "$SOURCE_DIR"
 
           cp -R "$PROJECT_DIR/lib" "$SOURCE_DIR/lib"
           cp "$PROJECT_DIR/pubspec.yaml" "$SOURCE_DIR/pubspec.yaml"
 
-          flutter create --platforms=android --org com.example --project-name price_inquiry "$BUILD_DIR"
+          echo "Creating Flutter Android project..."
+
+          flutter create \
+            --platforms=android \
+            --org com.example \
+            --project-name price_inquiry \
+            "$BUILD_DIR"
 
           rm -rf "$BUILD_DIR/lib"
+
           cp -R "$SOURCE_DIR/lib" "$BUILD_DIR/lib"
           cp "$SOURCE_DIR/pubspec.yaml" "$BUILD_DIR/pubspec.yaml"
 
-          cp "$PROJECT_DIR/codemagic_assets/AndroidManifest.xml" "$BUILD_DIR/android/app/src/main/AndroidManifest.xml"
+          echo "Preparing Android files..."
+
+          cp "$PROJECT_DIR/codemagic_assets/AndroidManifest.xml" \
+            "$BUILD_DIR/android/app/src/main/AndroidManifest.xml"
 
           mkdir -p "$BUILD_DIR/android/app/src/main/kotlin/com/example/price_inquiry"
 
-          cp "$PROJECT_DIR/codemagic_assets/MainActivity.kt" "$BUILD_DIR/android/app/src/main/kotlin/com/example/price_inquiry/MainActivity.kt"
+          cp "$PROJECT_DIR/codemagic_assets/MainActivity.kt" \
+            "$BUILD_DIR/android/app/src/main/kotlin/com/example/price_inquiry/MainActivity.kt"
+
+          echo "Updating Android configuration..."
 
           python3 - <<'PY'
           from pathlib import Path
 
           gradle = Path(".codemagic_build/android/app/build.gradle.kts")
+
           if not gradle.is_file():
-              raise SystemExit("لم يتم العثور على ملف build.gradle.kts")
+              raise SystemExit("Android Gradle file not found")
 
           content = gradle.read_text()
+
           content = content.replace(
               "minSdk = flutter.minSdkVersion",
               "minSdk = 23"
           )
+
           gradle.write_text(content)
+
+          print("Android configuration updated")
           PY
 
           cd "$BUILD_DIR"
+
+          echo "Fixing PDF and printing dependencies..."
 
           python3 - <<'PY'
           from pathlib import Path
@@ -66,23 +94,37 @@ workflows:
           p = Path("pubspec.yaml")
           content = p.read_text()
 
-          old = "pdf: ^3.13.1"
-          new = "pdf: 3.12.0"
+          old_pdf = "pdf: ^3.13.1"
+          new_pdf = "pdf: 3.12.0"
 
-          if old not in content:
-              raise SystemExit("لم يتم العثور على إصدار pdf القديم في pubspec.yaml")
+          old_printing = "printing: ^5.15.1"
+          new_printing = "printing: 5.14.3"
 
-          p.write_text(content.replace(old, new))
-          print("تم تثبيت إصدار pdf على 3.12.0")
+          if old_pdf not in content:
+              raise SystemExit("Original PDF dependency was not found")
+
+          if old_printing not in content:
+              raise SystemExit("Original printing dependency was not found")
+
+          content = content.replace(old_pdf, new_pdf)
+          content = content.replace(old_printing, new_printing)
+
+          p.write_text(content)
+
+          print("PDF version: 3.12.0")
+          print("Printing version: 5.14.3")
           PY
+
+          echo "Installing Flutter dependencies..."
 
           flutter pub get
 
-          flutter analyze
-
       - name: Build Android APK
         script: |
+          set -e
+
           cd "$CM_BUILD_DIR/.codemagic_build"
+
           flutter build apk --release
 
     artifacts:
