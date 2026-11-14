@@ -50,19 +50,18 @@ workflows:
           cd "$BUILD_DIR"
 
           python3 - <<'PY'
-          from pathlib import Path
 
-          p = Path("pubspec.yaml")
-          content = p.read_text()
+from pathlib import Path
 
-          old = "pdf: ^3.13.1"
-          new = "pdf: ^3.12.0"
+p = Path("pubspec.yaml")
+content = p.read_text()
 
-          if old not in content:
-              raise SystemExit("لم يتم العثور على إصدار pdf القديم")
+old = "pdf: ^3.13.1"
+new = "pdf: 3.12.0"
 
-          p.write_text(content.replace(old, new))
-          print("تم تعديل إصدار pdf بنجاح")
-          PY
+if old not in content:
+    raise SystemExit("لم يتم العثور على إصدار pdf القديم")
 
-          flutter pub get
+p.write_text(content.replace(old, new))
+print("تم تثبيت إصدار pdf على 3.12.0")
+
