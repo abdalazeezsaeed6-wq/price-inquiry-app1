@@ -9,22 +9,47 @@ class ImportService {
     required String extension,
     required Uint8List bytes,
   }) async {
-    if (extension.toLowerCase() == 'csv') {
+    final fileExtension = extension.toLowerCase().replaceFirst('.', '');
+
+    if (fileExtension == 'csv') {
       var text = utf8.decode(bytes, allowMalformed: true);
-      if (text.startsWith('\uFEFF')) text = text.substring(1);
+
+      if (text.startsWith('\uFEFF')) {
+        text = text.substring(1);
+      }
+
       final decoded = Csv().decode(text);
+
       return decoded
-          .map((row) => row.map((cell) => cell?.toString() ?? '').toList())
-          .where((row) => row.any((cell) => cell.trim().isNotEmpty))
+          .map(
+            (row) => row
+                .map((cell) => cell?.toString() ?? '')
+                .toList(),
+          )
+          .where(
+            (row) => row.any((cell) => cell.trim().isNotEmpty),
+          )
           .toList();
     }
 
-    if (extension.toLowerCase() == 'xlsx') {
+    if (fileExtension == 'xlsx') {
       final book = Excel.decodeBytes(bytes);
-      if (book.tables.isEmpty) return [];
+
+      if (book.tables.isEmpty) {
+        return [];
+      }
+
       final sheet = book.tables[book.tables.keys.first];
-      if (sheet == null) return [];
-      return sheet.rows.map((row) => row.map(_cellToString).toList()).toList();
+
+      if (sheet == null) {
+        return [];
+      }
+
+      return sheet.rows
+          .map(
+            (row) => row.map(_cellToString).toList(),
+          )
+          .toList();
     }
 
     throw FormatException('الصيغة غير مدعومة: $extension');
@@ -32,16 +57,43 @@ class ImportService {
 
   static String _cellToString(Data? cell) {
     final value = cell?.value;
-    if (value == null) return '';
-    return switch (value) {
-      TextCellValue() => value.value,
-      IntCellValue() => value.value.toString(),
-      DoubleCellValue() => value.value.toString(),
-      BoolCellValue() => value.value ? 'true' : 'false',
-      FormulaCellValue() => value.formula,
-      DateCellValue() => value.asDateTimeLocal().toIso8601String(),
-      TimeCellValue() => value.asDuration().toString(),
-      DateTimeCellValue() => value.asDateTimeLocal().toIso8601String(),
-    };
+
+    if (value == null) {
+      return '';
+    }
+
+    if (value is TextCellValue) {
+      return value.value.toString();
+    }
+
+    if (value is IntCellValue) {
+      return value.value.toString();
+    }
+
+    if (value is DoubleCellValue) {
+      return value.value.toString();
+    }
+
+    if (value is BoolCellValue) {
+      return value.value.toString();
+    }
+
+    if (value is FormulaCellValue) {
+      return value.formula.toString();
+    }
+
+    if (value is DateCellValue) {
+      return value.asDateTimeLocal().toIso8601String();
+    }
+
+    if (value is TimeCellValue) {
+      return value.asDuration().toString();
+    }
+
+    if (value is DateTimeCellValue) {
+      return value.asDateTimeLocal().toIso8601String();
+    }
+
+    return value.toString();
   }
 }
